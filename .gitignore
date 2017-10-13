@@ -1,0 +1,6 @@
+node_modules
+.idea
+.tmp
+*.ini
+.log
+.htaccess
