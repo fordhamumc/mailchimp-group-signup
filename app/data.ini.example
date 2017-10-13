@@ -1,4 +1,19 @@
 [mailchimp]
-api_key         = ""
-list_id         = ""
-opt_out_id      = ""
+api_key             = ""
+list_id             = ""
+opt_out_id          = ""
+
+[imc]
+baseUrl             = ""
+client_id           = ""
+client_secret       = ""
+refresh_token       = ""
+username            = ""
+password            = ""
+database_id         = ""
+
+[newsletters]
+fordham_news        = ""
+fordham_magazine    = ""
+media_mentions      = ""
+alumni_news         = ""

@@ -2,6 +2,10 @@
 namespace Email;
 
 use Mailchimp\Mailchimp;
+use IMCConnector\ImcConnector;
+use IMCConnector\ImcConnectorException;
+use IMCConnector\ImcXmlConnector;
+
 
 class User
 {
@@ -10,6 +14,7 @@ class User
 
   private $exclusions = array();
   private $exclusionsRemoved = array();
+  private $recipientId;
   private $optOut;
   private $mcStatus;
 
@@ -30,13 +35,13 @@ class User
         $this->exists = true;
         $this->exclusions = $this->strToArr($mcresult['merge_fields']['EXCLUSION']);
         $this->mcStatus = $mcresult['status'];
+        $this->recipientId = $mcresult['merge_fields']['IMCID'];
         $this->optOut = ( strtolower($mcresult['merge_fields']['OPTOUT']) === 'yes' ||
           $mcresult['status'] !== 'subscribed' ||
           $mcresult['interests'][$credentials['mailchimp']['opt_out_id']] ||
           in_array("NOC", $this->exclusions) ||
           in_array("EMC", $this->exclusions) );
       }
-      print_r($this);
     }
   }
 
@@ -117,6 +122,54 @@ class User
 
     /* return ['payload' => $mailchimpPayload]; */
 
+  }
+
+  /**
+   * Setup IMC
+   *
+   * A method that instantiates IMC
+   *
+   * @param array   $credentials    IMC API keys etc contained in the INI file
+   **/
+
+  private function initIMC($credentials)
+  {
+    ImcConnector::getInstance($credentials['baseUrl']);
+    ImcConnector::getInstance()->authenticateRest(
+      $credentials['client_id'],
+      $credentials['client_secret'],
+      $credentials['refresh_token']
+    );
+
+  }
+
+  /**
+   * Update IMC
+   *
+   * @param  array  $credentials  IMC credentials
+   * @return mixed
+   **/
+
+  public function updateIMC($credentials) {
+    $imcPayload = array();
+    $imcResult = array();
+    $error = false;
+    if ($this->recipientId && $this->isOptedOut()) {
+      $this->initIMC($credentials);
+      $imcPayload['Fordham Opt Out'] = 'None';
+      try {
+        $imcResult = ImcConnector::getInstance()->updateRecipient($credentials['database_id'],
+          $this->recipientId,
+          null,
+          $imcPayload);
+      } catch (ImcConnectorException $sce) {
+        error_log($_SERVER['REQUEST_URI']);
+        error_log(json_encode($sce));
+        $imcResult = $sce;
+        $error = true;
+      }
+    }
+    return ['payload' => $imcPayload, 'response' => $imcResult, 'isError' => $error];
   }
 
   /**

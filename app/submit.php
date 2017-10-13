@@ -30,7 +30,11 @@ foreach ($inputs['group'] as $group) {
   }
 }
 $user = new User($credentials, $inputs['email']);
-print_r( $user->updateMailchimp($credentials['mailchimp'], $groups) );
+$mcresponse = $user->updateMailchimp($credentials['mailchimp'], $groups);
+$imcresponse = $user->updateIMC($credentials['imc']);
+
+print_r($imcresponse);
+print_r($mcresponse);
 print_r($user);
 ?>
 
