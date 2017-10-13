@@ -5,7 +5,6 @@ use Mailchimp\Mailchimp;
 
 class User
 {
-  private $emailInput;
   private $email;
   private $exists = false;
 
@@ -37,6 +36,7 @@ class User
           in_array("NOC", $this->exclusions) ||
           in_array("EMC", $this->exclusions) );
       }
+      print_r($this);
     }
   }
 
@@ -77,28 +77,35 @@ class User
    * @return mixed
    **/
 
-  public function updateMailchimp($credentials)
+  public function updateMailchimp($credentials, $groups)
   {
     $error = false;
     $MailChimp = $this->getMailchimp($credentials['api_key']);
     $subscriber_hash = $MailChimp->subscriberHash($this->email);
-    $mailchimpMerge = $this->getPrefs(',', 'merge', '^');
-    $mailchimpMerge['OPTOUT'] = ($this->isOptedOut()) ? 'Yes' : 'None';
-    $mailchimpMerge['EXCLUSION'] = $this->getExclusions(',', '^');
+    $mailchimpPayload['interests'] = array();
 
-
-    $malichimpPayload = [
-      'email_address' => $this->emailInput,
-      'merge_fields' => $mailchimpMerge,
-      'status' => $this->getStatus()
-    ];
-    if (!$this->isOptedOut()) {
-      $malichimpPayload['interests'] = [
-        $credentials['opt_out_id'] => false
-      ];
+    if ($this->isOptedOut()) {
+      $this->optInExclusions();
+      $mailchimpPayload['status'] = 'pending';
+      $mailchimpPayload['merge_fields'] = array (
+        'OPTOUT' => 'None',
+        'EXCLUSION' => $this->getExclusions(',', '^')
+      );
+      $mailchimpPayload['interests'][$credentials['opt_out_id']] = false;
     }
 
-    $mcresult = $MailChimp->patch("lists/{$credentials['list_id']}/members/$subscriber_hash", $malichimpPayload);
+    foreach($groups as $group) {
+      $mailchimpPayload['interests'][$group] = true;
+    }
+    if ($this->exists) {
+      $mcresult = $MailChimp->patch("lists/{$credentials['list_id']}/members/$subscriber_hash", $mailchimpPayload);
+    } else {
+      $mailchimpPayload['email_address'] = $this->email;
+      $mailchimpPayload['status'] = 'pending';
+      $mailchimpPayload['timestamp_signup'] = date("Y-m-d G:i:s");
+
+      $mcresult = $MailChimp->post("lists/{$credentials['list_id']}/members", $mailchimpPayload);
+    }
 
     if (!$MailChimp->success()) {
       error_log( $_SERVER['REQUEST_URI'] );
@@ -106,8 +113,10 @@ class User
       error_log(json_encode($MailChimp->getLastResponse()));
       $error = true;
     }
+    return ['payload' => $mailchimpPayload, 'response' => $mcresult, 'isError' => $error];
 
-    return ['payload' => $malichimpPayload, 'response' => $mcresult, 'isError' => $error];
+    /* return ['payload' => $mailchimpPayload]; */
+
   }
 
   /**
@@ -169,22 +178,18 @@ class User
    *
    * @param bool    $optOut     Opt Out
    **/
-  public function setOptOut($optOut) {
-    $this->optOut = !!$optOut;
+  private function optInExclusions() {
+    if(($key = array_search("EMC", $this->exclusions)) !== false) {
+      $this->exclusionsRemoved[] = "EMC";
+      unset($this->exclusions[$key]);
+    }
 
-    if (!$optOut) {
-      if(($key = array_search("EMC", $this->exclusions)) !== false) {
-        $this->exclusionsRemoved[] = "EMC";
-        unset($this->exclusions[$key]);
-      }
-
-      if(($key = array_search("NOC", $this->exclusions)) !== false) {
-        $this->exclusionsRemoved[] = "NOC";
-        unset($this->exclusions[$key]);
-        foreach(["APC","AMC"] as $ec) {
-          if (!in_array($ec, $this->exclusions)) {
-            $this->exclusions[] = $ec;
-          }
+    if(($key = array_search("NOC", $this->exclusions)) !== false) {
+      $this->exclusionsRemoved[] = "NOC";
+      unset($this->exclusions[$key]);
+      foreach(["APC","AMC"] as $ec) {
+        if (!in_array($ec, $this->exclusions)) {
+          $this->exclusions[] = $ec;
         }
       }
     }

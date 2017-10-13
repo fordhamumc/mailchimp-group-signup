@@ -13,6 +13,7 @@ $postModel = array(
                       'flags'   => FILTER_FORCE_ARRAY )
 );
 $inputs = filter_input_array(INPUT_POST, $postModel);
+$groups = array();
 
 if (file_exists(dirname(__FILE__) . '/data-qa.ini')) {
   $credentials = parse_ini_file(__DIR__ . "/data-qa.ini", true);
@@ -22,10 +23,14 @@ if (file_exists(dirname(__FILE__) . '/data-qa.ini')) {
   exit("unable to open credentials file");
 }
 foreach ($inputs['group'] as $group) {
-  if (!array_key_exists($group, $credentials["newsletters"])) exit("group key not found: {$group}");
+  if (array_key_exists($group, $credentials["newsletters"])) {
+    $groups[$group] = $credentials["newsletters"][$group];
+  } else {
+    exit("group key not found: {$group}");
+  }
 }
 $user = new User($credentials, $inputs['email']);
-print_r($inputs);
+print_r( $user->updateMailchimp($credentials['mailchimp'], $groups) );
 print_r($user);
 ?>
 
