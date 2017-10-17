@@ -1,20 +1,16 @@
 <?php
 include_once "inc/header.php";
-?>
-
-<pre>
-<?php
-
 use Email\User;
 
 $postModel = array(
   'email'   => FILTER_SANITIZE_EMAIL,
   'group'   => array( 'filter'  => FILTER_SANITIZE_STRING,
-                      'flags'   => FILTER_FORCE_ARRAY )
+                      'flags'   => FILTER_FORCE_ARRAY ),
+  'b_fu5ju' => FILTER_SANITIZE_STRING
 );
 $inputs = filter_input_array(INPUT_POST, $postModel);
 $groups = array();
-
+print_r($inputs);
 if (file_exists(dirname(__FILE__) . '/data-qa.ini')) {
   $credentials = parse_ini_file(__DIR__ . "/data-qa.ini", true);
 } else if (file_exists(dirname(__FILE__) . '/data.ini')) {
@@ -29,17 +25,12 @@ foreach ($inputs['group'] as $group) {
     exit("group key not found: {$group}");
   }
 }
-$user = new User($credentials, $inputs['email']);
-$mcresponse = $user->updateMailchimp($credentials['mailchimp'], $groups);
-$imcresponse = $user->updateIMC($credentials['imc']);
 
-print_r($imcresponse);
-print_r($mcresponse);
-print_r($user);
-?>
+if (empty($inputs['b_fu5ju'])) {
+  $user = new User($credentials, $inputs['email']);
+  $mcresponse = $user->updateMailchimp($credentials['mailchimp'], $groups);
+  $imcresponse = $user->updateIMC($credentials['imc']);
 
-</pre>
-
-
-<?php
-include_once "inc/footer.php";
+  print_r($mcresponse);
+  print_r($user);
+}
