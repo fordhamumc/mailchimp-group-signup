@@ -10,7 +10,6 @@ $postModel = array(
 );
 $inputs = filter_input_array(INPUT_POST, $postModel);
 $groups = array();
-print_r($inputs);
 if (file_exists(dirname(__FILE__) . '/data-qa.ini')) {
   $credentials = parse_ini_file(__DIR__ . "/data-qa.ini", true);
 } else if (file_exists(dirname(__FILE__) . '/data.ini')) {
@@ -26,11 +25,24 @@ foreach ($inputs['group'] as $group) {
   }
 }
 
+$response = array(
+  "email"   => $inputs['email'],
+  "error"   => false,
+  "message" => "Thank you. You have been added to the list."
+);
+
 if (empty($inputs['b_fu5ju'])) {
   $user = new User($credentials, $inputs['email']);
   $mcresponse = $user->updateMailchimp($credentials['mailchimp'], $groups);
   $imcresponse = $user->updateIMC($credentials['imc']);
 
-  print_r($mcresponse);
-  print_r($user);
+  if ($mcresponse['isError']) {
+    $response['error'] = true;
+    $response['message'] = $mcresponse['response']['detail'];
+  } elseif($mcresponse['response']['status'] === 'pending') {
+    $response['message'] = "Please check your email to confirm your subscription.";
+  }
 }
+
+header('Content-Type: application/json');
+echo json_encode($response);
